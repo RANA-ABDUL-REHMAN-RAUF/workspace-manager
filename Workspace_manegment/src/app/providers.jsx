@@ -1,9 +1,14 @@
 import { useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { actions } from '../store/rootReducer'
 import { AuthContext } from '../store/hooks'
-import { authenticate, clearSession, publicUser, readSession, registerUser, saveSession } from '../services/storage/localStorage'
+import { authenticate, clearSession, publicUser, registerUser, saveSession } from '../services/storage/localStorage'
 
 export default function AppProviders({ children }) {
-  const [session, setSession] = useState(readSession)
+  const dispatch = useDispatch()
+  const session = useSelector(s => s.data.users.find(u => u.id === s.user?.id) || s.user)
+  const pending = useSelector(s => s.pending)
+  const setSession = user => dispatch(actions.sessionChanged(user))
   const [sessionNotice, setSessionNotice] = useState('')
 
   async function login(email, password, remember) {
@@ -31,6 +36,7 @@ export default function AppProviders({ children }) {
   }
 
   function logout() {
+    if (pending) throw new Error('Please wait for the current change to finish.')
     try {
       clearSession()
     } catch {
@@ -40,5 +46,11 @@ export default function AppProviders({ children }) {
     setSessionNotice('')
   }
 
-  return <AuthContext.Provider value={{ session, sessionNotice, login, register, logout }}>{children}</AuthContext.Provider>
+  function switchProfile(user) {
+    if (pending) throw new Error('Please wait for the current change to finish.')
+    saveSession(user, false)
+    setSession(user)
+  }
+
+  return <AuthContext.Provider value={{ session, sessionNotice, login, register, logout, switchProfile }}>{children}</AuthContext.Provider>
 }
