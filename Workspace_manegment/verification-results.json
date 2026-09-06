@@ -1,0 +1,78 @@
+[
+  {
+    "name": "1. Overview route loads",
+    "detail": "Passed"
+  },
+  {
+    "name": "2. Route ID overrides active workspace",
+    "detail": "Passed"
+  },
+  {
+    "name": "3. Invalid workspace IDs handled",
+    "detail": "Passed"
+  },
+  {
+    "name": "4. Projects and task URLs isolated to workspace",
+    "detail": "Passed"
+  },
+  {
+    "name": "5. Workspace task filters",
+    "detail": "Passed"
+  },
+  {
+    "name": "6. My Tasks uses user ID, including assigned subtasks",
+    "detail": "Passed"
+  },
+  {
+    "name": "7. Overdue excludes completed/today; uses local date",
+    "detail": "Passed"
+  },
+  {
+    "name": "8. Project links load real task views",
+    "detail": "Passed"
+  },
+  {
+    "name": "9. Create Project writes to route workspace",
+    "detail": "Passed"
+  },
+  {
+    "name": "10. Mock invitation adds member",
+    "detail": "Passed"
+  },
+  {
+    "name": "Subtasks: create, complete, open, edit",
+    "detail": "Passed"
+  },
+  {
+    "name": "11. Actions reflect changed permissions",
+    "detail": "Passed"
+  },
+  {
+    "name": "12. Viewer UI and model reject edits",
+    "detail": "Passed"
+  },
+  {
+    "name": "13. Mobile layout without page overflow",
+    "detail": "Passed"
+  },
+  {
+    "name": "Cloudinary upload UI, validation and profile persistence",
+    "detail": "Passed with mocked Cloudinary response; live endpoint verified separately"
+  },
+  {
+    "name": "16. Existing page smoke checks",
+    "detail": "Passed"
+  },
+  {
+    "name": "14. No console or page errors",
+    "detail": "Passed"
+  },
+  {
+    "name": "15. Hydration",
+    "detail": "Not applicable: Vite client-rendered app; no hydration errors logged"
+  },
+  {
+    "name": "17. Shared components",
+    "detail": "Workspace/project tasks reuse TaskViews; profile reuses Avatar, Card, Button, Field, Input"
+  }
+]

@@ -1,4 +1,5 @@
 import { createNextState } from '@reduxjs/toolkit'
+import { isProfilePhoto } from '../utils/profilePhoto'
 import { day } from '../data/seed'
 
 export const roleFor = (data, workspaceId, userId) => data.workspaces.find(w => w.id === workspaceId)?.members.find(m => m.userId === userId)?.role
@@ -12,6 +13,7 @@ export function applyCommand(data, command, actor, at, id) {
     const project = d.projects.find(x => x.id === (p.projectId || d.tasks.find(t => t.id === p.id)?.projectId))
     const workspaceId = p.workspaceId || project?.workspaceId
     const role = roleFor(d, workspaceId, actor)
+    if (project && project.workspaceId !== workspaceId) throw new Error('Project not found in this workspace.')
     if (!actor) throw new Error('Please sign in.')
     if (type !== 'workspace.create' && type !== 'profile.update' && !canEdit(role)) throw new Error('Access denied. Your workspace role does not allow editing.')
     if (['workspace.update', 'workspace.delete', 'member.save', 'member.remove', 'project.delete', 'project.save'].includes(type) && !canManage(role)) throw new Error('Access denied. An owner or admin is required.')
@@ -64,7 +66,7 @@ export function applyCommand(data, command, actor, at, id) {
       case 'task.duplicate': if (!task) throw new Error('Task not found.'); d.tasks.push({ ...task, id, title: `${task.title} (copy)`, createdAt: at }); d.tasks.filter(t => t.parentId === task.id).forEach((t, i) => d.tasks.push({ ...t, id: `${id}-sub-${i}`, parentId: id })); break
       case 'comment.save': { if (!task) throw new Error('Task not found.'); const existing = d.comments.find(c => c.id === p.commentId); if (existing && existing.userId !== actor) throw new Error('You can only edit your own comments.'); const text = required(p.text, 'Comment'); if (existing) { existing.text = text; existing.editedAt = at } else d.comments.push({ id, taskId: task.id, userId: actor, text, at }); d.users.filter(u => text.includes(`@${u.name}`)).forEach(u => notify(u.id, 'mentioned', `You were mentioned in ${task.title}`, task.id)); break }
       case 'comment.delete': { const comment = d.comments.find(c => c.id === p.commentId && c.taskId === task?.id); if (!comment || comment.userId !== actor) throw new Error('You can only delete your own comments.'); d.comments = d.comments.filter(c => c.id !== comment.id); break }
-      case 'profile.update': { const user = d.users.find(u => u.id === actor); if (!user) throw new Error('Profile not found.'); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email || '')) throw new Error('Enter a valid email.'); if (d.users.some(u => u.id !== actor && u.email.toLowerCase() === p.email.trim().toLowerCase())) throw new Error('Email already in use.'); user.name = required(p.name, 'Name'); user.email = p.email.trim().toLowerCase(); user.avatar = p.avatar || ''; break }
+      case 'profile.update': { const user = d.users.find(u => u.id === actor); if (!user) throw new Error('Profile not found.'); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email || '')) throw new Error('Enter a valid email.'); if (d.users.some(u => u.id !== actor && u.email.toLowerCase() === p.email.trim().toLowerCase())) throw new Error('Email already in use.'); user.name = required(p.name, 'Name'); user.email = p.email.trim().toLowerCase(); if (!isProfilePhoto(p.avatar)) throw new Error('Choose a valid profile photo.'); user.avatar = p.avatar || ''; break }
       default: throw new Error('Unknown operation.')
     }
     if (workspaceId && type !== 'workspace.delete') d.activities.unshift({ id, workspaceId, projectId: project?.id || p.projectId || (type === 'project.save' ? p.id || id : null), taskId: task?.id || (type === 'task.save' ? id : null), userId: actor, action: type, text: p.title || p.name || p.text || type.replace('.', ' '), at })

@@ -50,12 +50,12 @@ export default function AppLayout() {
   if (!session) return <Navigate to={ROUTES.login} state={{ from: location.pathname + location.search + location.hash }} replace />
 
   return <div className="min-h-svh bg-[#f8f9fe] font-sans text-slate-800 dark:bg-slate-950 dark:text-slate-200">
-    <div className="mx-auto flex max-w-360">
+    <div className="mx-auto flex max-w-[1600px]">
       <Sidebar drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} onCreateProject={openCreateProject} />
       <div className="min-w-0 flex-1">
         <Header onOpenDrawer={() => setDrawerOpen(true)} onOpenPalette={openPalette} />
         {sessionNotice && <p role="status" className="bg-amber-50 p-4 text-sm text-amber-800">{sessionNotice}</p>}
-        <main className="px-4 py-5 sm:px-6 lg:px-7 lg:py-6"><Outlet context={{ openCreateTask, openCreateProject, openPalette }} /></main>
+        <main className="px-4 py-5 sm:px-6 lg:px-7 lg:pt-7 pb-24"><Outlet context={{ openCreateTask, openCreateProject, openPalette }} /></main>
       </div>
     </div>
     {taskModal && workspace && <TaskFormModal projects={data.projects.filter((p) => p.workspaceId === workspace.id && !p.archived)} defaultProjectId={taskModal.projectId} onClose={() => setTaskModal(null)} />}

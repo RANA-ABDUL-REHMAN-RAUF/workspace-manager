@@ -9,6 +9,8 @@ import DashboardPage from '../pages/Dashboard/DashboardPage'
 import WorkspacePage from '../pages/Workspace/WorkspacePage'
 import ProjectsPage from '../pages/Projects/ProjectsPage'
 import ProjectPage from '../pages/Project/ProjectPage'
+import TaskDetailsPage from '../pages/Project/TaskDetailsPage'
+import ProfilePage from '../pages/Profile/ProfilePage'
 import MyTasksPage from '../pages/MyTasks/MyTasksPage'
 import MembersPage from '../pages/Members/MembersPage'
 import ActivityPage from '../pages/Activity/ActivityPage'
@@ -53,13 +55,13 @@ export default function AppRouter() {
         <Route path="activity" element={<ActivityPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
-      <Route path={ROUTES.task} element={<EmptyState title="Task details" description="Task details, subtasks, and comments are coming soon." />} />
+      <Route path={ROUTES.task} element={<TaskDetailsPage />} />
       <Route path={ROUTES.myTasks} element={<MyTasksPage />} />
       <Route path={ROUTES.members} element={<MembersPage />} />
       <Route path={ROUTES.activity} element={<ActivityPage />} />
       <Route path={ROUTES.search} element={<SearchPage />} />
       <Route path={ROUTES.notifications} element={<EmptyState title="Notifications" />} />
-      <Route path={ROUTES.profile} element={<EmptyState title="Your profile" />} />
+      <Route path={ROUTES.profile} element={<ProfilePage />} />
       <Route path={ROUTES.settings} element={<SettingsPage />} />
     </Route>
     <Route path="*" element={<NotFound />} />

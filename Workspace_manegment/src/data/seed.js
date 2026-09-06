@@ -1,4 +1,4 @@
-export const day = (offset = 0) => { const date = new Date(); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10) }
+export const day = (offset = 0) => { const date = new Date(); date.setDate(date.getDate() + offset); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 export function seedData() {
   const users = [
     { id: 'demo-user', name: 'Alex Morgan', email: 'alex@workspace.com', avatar: '', role: 'admin' },
