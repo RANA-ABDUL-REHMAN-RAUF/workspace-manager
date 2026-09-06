@@ -1,0 +1,52 @@
+import { useState } from 'react'
+import { useDispatch } from 'react-redux'
+import { MessageSquare, Paperclip, Plus, Trash2, Copy } from 'lucide-react'
+import { useWorkspace } from '../workspaces/useWorkspace'
+import { execute } from '../../store/store'
+import { Button, Field, Input, Select, Modal, Confirm, Avatar } from '../../components/ui/WorkspaceUI'
+import { notify } from '../../utils/notify'
+
+export default function TaskEditor({ taskId, projectId, onClose, embedded = false }) {
+  const dispatch = useDispatch()
+  const { data, projects, workspace, user, pending, editable } = useWorkspace()
+  const task = data.tasks.find(t => t.id === taskId)
+  const initialProject = projects.find(p => p.id === (task?.projectId || projectId)) || projects.find(p => !p.archived)
+  const [form, setForm] = useState(task ? { ...task, labels: task.labels.join(', ') } : { title: '', projectId: initialProject?.id || '', description: '', status: initialProject?.columns[0] || 'To do', priority: 'Medium', dueDate: '', assignee: user?.id && initialProject?.members.includes(user.id) ? user.id : '', labels: '', parentId: null, attachments: [] })
+  const [comment, setComment] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [subtask, setSubtask] = useState('')
+  const [confirm, setConfirm] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const project = projects.find(p => p.id === form.projectId)
+  const disabled = pending || !editable || uploading || project?.archived
+  const update = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  const send = (type, payload, label) => dispatch(execute({ type, payload: { workspaceId: workspace?.id, projectId: project?.id, ...payload } }, label))
+  async function save(e) { e.preventDefault(); if (await send('task.save', { ...form, id: task?.id, labels: form.labels.split(',').map(s => s.trim()).filter(Boolean), parentId: form.parentId || null }, task ? 'Task updated' : 'Task created')) onClose() }
+  async function attach(e) {
+    const file = e.target.files?.[0]; if (!file) return
+    if (file.size > 1024 * 1024) { notify('Choose a file smaller than 1 MB for this local demo.', 'error'); return }
+    setUploading(true)
+    try { const value = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Could not read file.')); reader.readAsDataURL(file) }); setForm(f => ({ ...f, attachments: [...f.attachments, { id: crypto.randomUUID(), name: file.name, data: value }] })) } catch (error) { notify(error, 'error') } finally { setUploading(false) }
+  }
+  const mentionQuery = comment.match(/@([^@\n]*)$/)?.[1]?.toLowerCase()
+  const content = !project ? <p className="text-sm text-slate-500">Create a project before adding tasks.</p> : <>
+    {!editable && <p role="alert" className="mb-4 rounded bg-amber-50 p-3 text-xs text-amber-700">View only. Your role does not allow changes.</p>}
+    <form onSubmit={save} className="space-y-4">
+      <Field label="Task title"><Input name="title" value={form.title} onChange={update} required disabled={disabled} /></Field>
+      <div className="grid grid-cols-2 gap-4"><Field label="Project"><Select className="w-full" value={form.projectId} disabled={disabled || Boolean(task)} onChange={e => { const p = projects.find(p => p.id === e.target.value); setForm(f => ({ ...f, projectId: p.id, status: p.columns[0], assignee: '', parentId: null })) }}>{projects.filter(p => !p.archived || p.id === task?.projectId).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field><Field label="Status"><Select className="w-full" name="status" value={form.status} onChange={update} disabled={disabled}>{project.columns.map(c => <option key={c}>{c}</option>)}</Select></Field>
+      <Field label="Priority"><Select className="w-full" name="priority" value={form.priority} onChange={update} disabled={disabled}>{['Low', 'Medium', 'High', 'Urgent'].map(p => <option key={p}>{p}</option>)}</Select></Field><Field label="Due date"><Input name="dueDate" type="date" value={form.dueDate} onChange={update} disabled={disabled} /></Field>
+      <Field label="Assignee"><Select className="w-full" name="assignee" value={form.assignee} onChange={update} disabled={disabled}><option value="">Unassigned</option>{data.users.filter(u => project.members.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field><Field label="Labels (comma separated)"><Input name="labels" value={form.labels} onChange={update} disabled={disabled} /></Field></div>
+      <Field label="Description"><textarea name="description" value={form.description} onChange={update} disabled={disabled} rows={3} className="w-full rounded-md border border-slate-200 bg-transparent p-3 text-xs dark:border-slate-700" /></Field>
+      <Field label="Parent task (clear to promote a subtask)"><Select className="w-full" name="parentId" value={form.parentId || ''} onChange={update} disabled={disabled}><option value="">Top-level task</option>{data.tasks.filter(t => t.projectId === project.id && !t.parentId && t.id !== task?.id).map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</Select></Field>
+      <div className="space-y-2"><p className="flex items-center gap-2 text-xs font-medium"><Paperclip size={14} />Attachments</p>{form.attachments.map(a => <div key={a.id} className="flex items-center justify-between text-xs"><a className="text-violet-600 underline" href={a.data} download={a.name}>{a.name}</a><button type="button" disabled={disabled} aria-label={`Remove ${a.name}`} onClick={() => setForm(f => ({ ...f, attachments: f.attachments.filter(x => x.id !== a.id) }))}><Trash2 size={13} /></button></div>)}<input type="file" onChange={attach} disabled={disabled} className="block w-full text-xs text-slate-400" /></div>
+      <div className="flex flex-wrap justify-between gap-2 border-t border-slate-100 pt-4"><div className="flex gap-2">{task && <><Button type="button" disabled={disabled} onClick={async () => { if (await send('task.duplicate', { id: task.id }, 'Task duplicated')) onClose() }}><Copy size={13} />Duplicate</Button><Button type="button" disabled={disabled} onClick={() => setConfirm('task')}><Trash2 size={13} />Delete</Button></>}</div><Button primary type="submit" disabled={disabled}>{pending ? 'Saving…' : 'Save task'}</Button></div>
+    </form>
+    {task && <div className="mt-6 space-y-5 border-t border-slate-100 pt-5">
+      {!task.parentId && <section><h3 className="mb-3 text-sm font-semibold">Subtasks</h3>{data.tasks.filter(t => t.parentId === task.id).map(t => <div key={t.id} className="flex items-center gap-2 py-2 text-xs"><input aria-label={`Complete ${t.title}`} type="checkbox" checked={t.status === 'Done'} disabled={disabled} onChange={e => send('task.save', { ...t, status: e.target.checked ? 'Done' : project.columns[0] }, 'Subtask updated')} /><span className="flex-1">{t.title}</span><Button disabled={disabled} onClick={() => send('task.save', { ...t, parentId: null }, 'Subtask promoted')}>Promote</Button><Button disabled={disabled} onClick={() => setConfirm(t.id)}><Trash2 size={12} /></Button></div>)}<form className="mt-2 flex gap-2" onSubmit={async e => { e.preventDefault(); if (await send('task.save', { title: subtask, description: '', projectId: project.id, status: project.columns[0], priority: 'Medium', dueDate: '', assignee: '', labels: [], parentId: task.id, attachments: [] }, 'Subtask added')) setSubtask('') }}><Input placeholder="Add a subtask" aria-label="Subtask title" value={subtask} onChange={e => setSubtask(e.target.value)} required disabled={disabled} /><Button disabled={disabled}><Plus size={14} /></Button></form></section>}
+      <section><h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><MessageSquare size={15} />Comments</h3>{data.comments.filter(c => c.taskId === task.id).map(c => <div key={c.id} className="mb-3 rounded-md bg-slate-50 p-3 dark:bg-slate-800"><div className="flex items-center gap-2"><Avatar small user={data.users.find(u => u.id === c.userId)} /><strong className="text-xs">{data.users.find(u => u.id === c.userId)?.name}</strong><time className="text-[9px] text-slate-400">{new Date(c.at).toLocaleString()}</time></div><p className="my-2 whitespace-pre-wrap text-xs">{c.text}</p>{c.userId === user?.id && editable && <div className="flex gap-3 text-[10px] text-violet-600"><button onClick={() => { setEditing(c.id); setComment(c.text) }}>Edit</button><button disabled={disabled} onClick={() => send('comment.delete', { id: task.id, commentId: c.id }, 'Comment deleted')}>Delete</button></div>}</div>)}<form onSubmit={async e => { e.preventDefault(); if (await send('comment.save', { id: task.id, commentId: editing, text: comment }, 'Comment saved')) { setComment(''); setEditing(null) } }}><Input value={comment} onChange={e => setComment(e.target.value)} placeholder="Write a comment… use @ to mention" aria-label="Comment" required disabled={disabled} />{mentionQuery !== undefined && data.users.filter(u => project.members.includes(u.id) && u.name.toLowerCase().includes(mentionQuery)).map(u => <button key={u.id} type="button" className="m-1 rounded bg-violet-50 px-2 py-1 text-xs text-violet-600" onClick={() => setComment(c => c.replace(/@[^@\n]*$/, `@${u.name} `))}>{u.name}</button>)}<div className="mt-2 flex gap-2"><Button disabled={disabled}>{editing ? 'Update comment' : 'Post comment'}</Button>{editing && <Button type="button" onClick={() => { setEditing(null); setComment('') }}>Cancel edit</Button>}</div></form></section>
+      <section><h3 className="text-sm font-semibold">Task activity</h3>{data.activities.filter(a => a.taskId === task.id).slice(0, 20).map(a => <p key={a.id} className="mt-2 text-xs text-slate-500">{data.users.find(u => u.id === a.userId)?.name}: {a.action} · {new Date(a.at).toLocaleString()}</p>)}</section>
+    </div>}
+    {confirm && <Confirm title="Delete task?" busy={pending} onClose={() => setConfirm(null)} onConfirm={async () => { if (await send('task.delete', { id: confirm === 'task' ? task.id : confirm }, 'Task deleted')) { setConfirm(null); if (confirm === 'task') onClose() } }} />}
+  </>
+  return embedded ? <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">{content}</div> : <Modal wide title={task ? 'Task details' : 'Create task'} onClose={onClose}>{content}</Modal>
+}

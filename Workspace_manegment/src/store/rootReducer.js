@@ -17,7 +17,7 @@ const slice = createSlice({ name: 'workspace', initialState: initialState(), red
   syncing(s, { payload }) { s.syncing = payload; if (!payload) s.lastSync = new Date().toISOString() },
   projectView(s, { payload }) { const p = s.data.projects.find(p => p.id === payload.id); if (p && ['board', 'list', 'calendar'].includes(payload.view)) p.view = payload.view },
   preset(s, { payload }) { s.data.presets = s.data.presets.filter(p => !(p.userId === s.user?.id && p.name === payload.name)); s.data.presets.push({ ...payload, userId: s.user?.id }) },
-  notifications(s, { payload }) { payload.forEach(n => { if (!s.data.notifications.some(x => x.id === n.id)) s.data.notifications.unshift(n) }); s.data.notifications = s.data.notifications.slice(0, 300) },
+  notifications(s, { payload }) { payload.forEach(n => { if (!s.data.notifications.some(x => x.id === n.id)) s.data.notifications.unshift(n) }); if (s.data.notifications.length > 300) s.data.notifications.length = 300 },
   readNotification(s, { payload }) { s.data.notifications.filter(n => n.userId === s.user?.id && (!payload || n.id === payload)).forEach(n => { n.read = true }) },
   liveEvent(s, { payload }) { if (!s.pending) s.data.activities.unshift(payload) },
   replaceData(s, { payload }) { if (!s.pending) { s.data = payload; s.past = []; s.future = []; s.activeWorkspace = payload.workspaces.find(w => w.members.some(m => m.userId === s.user?.id))?.id || '' } },

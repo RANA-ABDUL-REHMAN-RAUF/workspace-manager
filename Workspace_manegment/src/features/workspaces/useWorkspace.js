@@ -1,9 +1,9 @@
-import { useSelector } from 'react-redux'
+import { shallowEqual, useSelector } from 'react-redux'
 import { useLocation } from 'react-router-dom'
 import { roleFor, canEdit, canManage } from '../../store/workspaceModel'
 
 export function useWorkspace() {
-  const state = useSelector(s => s)
+  const state = useSelector(s => ({ ...s }), shallowEqual)
   const location = useLocation()
   const routeId = location.pathname.match(/^\/workspaces\/([^/]+)/)?.[1]
   const available = state.data.workspaces.filter(w => w.members.some(m => m.userId === state.user?.id))

@@ -4,6 +4,7 @@ import { applyCommand } from './workspaceModel'
 import { validateImport } from '../services/importExport/importWorkspace'
 import { notify, notifyUndo } from '../utils/notify'
 import { readSession } from '../services/storage/localStorage'
+import { toast } from 'react-toastify'
 
 const KEY = 'workspace-manager.data.v1'
 function restore() {
@@ -29,6 +30,7 @@ export const execute = (command, label = 'Changes saved') => async (dispatch, ge
   if (s.pending) { notify('Please wait for the current change to finish.', 'info'); return false }
   try {
     const next = applyCommand(s.data, command, s.user?.id, new Date().toISOString(), crypto.randomUUID())
+    toast.dismiss()
     dispatch(actions.commit(next))
     await new Promise(resolve => setTimeout(resolve, 350))
     if (s.failNext) { dispatch(actions.rollback()); notify('Simulated save failed. Your change was rolled back.', 'error'); return false }

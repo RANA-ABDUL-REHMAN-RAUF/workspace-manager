@@ -1,34 +1,68 @@
-import { useState } from 'react'
-import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { useAuth } from '../store/hooks'
+import { actions } from '../store/rootReducer'
+import { dueNotifications } from '../store/workspaceModel'
+import { store } from '../store/store'
+import { startMockSocket } from '../services/mock/mockSocket'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut'
 import { ROUTES } from '../constants/routes'
-
-const navigation = [
-  ['Dashboard', ROUTES.dashboard], ['Workspaces', ROUTES.workspaces],
-  ['Projects', ROUTES.projects], ['My tasks', ROUTES.myTasks],
-  ['Members', ROUTES.members], ['Activity', ROUTES.activity],
-  ['Search', ROUTES.search], ['Notifications', ROUTES.notifications],
-  ['Profile', ROUTES.profile], ['Settings', ROUTES.settings],
-]
+import Sidebar from './Sidebar'
+import Header from './Header'
+import DevControls from './DevControls'
+import TaskFormModal from '../features/tasks/TaskFormModal'
+import ProjectFormModal from '../features/projects/ProjectFormModal'
+import CommandPalette from '../features/search/CommandPalette'
+import TaskEditor from '../features/tasks/TaskEditor'
+import ProjectEditor from '../features/projects/ProjectEditor'
+import { useWorkspace } from '../features/workspaces/useWorkspace'
+import { notify } from '../utils/notify'
+import { toast } from 'react-toastify'
 
 export default function AppLayout() {
-  const { session, sessionNotice, logout } = useAuth()
+  const { session, sessionNotice } = useAuth()
+  const dispatch = useDispatch()
+  const data = useSelector((s) => s.data)
+  const { workspace, editable, manageable, prefs, ui, pending } = useWorkspace()
   const location = useLocation()
-  const [error, setError] = useState('')
+  const online = useOnlineStatus()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [taskModal, setTaskModal] = useState(null)
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => { dispatch(actions.connectivity(online)) }, [dispatch, online])
+  useEffect(() => { dispatch(actions.notifications(dueNotifications(data))) }, [dispatch, data])
+  useEffect(() => startMockSocket(dispatch, store.getState), [dispatch])
+  useEffect(() => { document.documentElement.classList.toggle('dark', prefs.theme === 'dark'); return () => document.documentElement.classList.remove('dark') }, [prefs.theme])
+
+  const openCreateTask = useCallback((projectId) => { if (!editable) { notify('Create a workspace or ask for editing access first.', 'error'); return } setTaskModal({ projectId: projectId || null }) }, [editable])
+  const openCreateProject = useCallback(() => { if (!manageable) { notify('An owner or admin can create projects.', 'error'); return } setProjectModalOpen(true) }, [manageable])
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
+
+  useKeyboardShortcut('c', () => openCreateTask())
+  useKeyboardShortcut('p', () => openCreateProject())
+  useKeyboardShortcut('k', () => setPaletteOpen((open) => !open), { meta: true })
+  useKeyboardShortcut('z', e => { if (!pending) { toast.dismiss(); dispatch(e.shiftKey ? actions.redo() : actions.undo()) } }, { meta: true })
+
   if (!session) return <Navigate to={ROUTES.login} state={{ from: location.pathname + location.search + location.hash }} replace />
 
-  return <div className="min-h-svh bg-[#f8f9fe] font-sans text-slate-800">
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4">
-      <NavLink to={ROUTES.dashboard} className="font-semibold text-[#6963d8]">Workspace Manager</NavLink>
-      <div className="flex items-center gap-4 text-sm"><span>{session.name}</span><button className="cursor-pointer rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-[#6963d8]" onClick={() => { try { logout() } catch (failure) { setError(failure.message) } }}>Sign out</button></div>
-    </header>
-    {error && <p role="alert" className="bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    {sessionNotice && <p role="status" className="bg-amber-50 p-4 text-sm text-amber-800">{sessionNotice}</p>}
-    <div className="mx-auto grid max-w-7xl gap-6 p-6 md:grid-cols-[200px_1fr]">
-      <nav aria-label="Main navigation" className="flex flex-wrap gap-1 self-start md:flex-col">
-        {navigation.map(([label, to]) => <NavLink key={to} to={to} className={({ isActive }) => `rounded-md px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-[#6963d8] ${isActive ? 'bg-[#eeedfe] font-medium text-[#6963d8]' : 'text-slate-600 hover:bg-white'}`}>{label}</NavLink>)}
-      </nav>
-      <main className="min-w-0"><Outlet /></main>
+  return <div className="min-h-svh bg-[#f8f9fe] font-sans text-slate-800 dark:bg-slate-950 dark:text-slate-200">
+    <div className="mx-auto flex max-w-360">
+      <Sidebar drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} onCreateProject={openCreateProject} />
+      <div className="min-w-0 flex-1">
+        <Header onOpenDrawer={() => setDrawerOpen(true)} onOpenPalette={openPalette} />
+        {sessionNotice && <p role="status" className="bg-amber-50 p-4 text-sm text-amber-800">{sessionNotice}</p>}
+        <main className="px-4 py-5 sm:px-6 lg:px-7 lg:py-6"><Outlet context={{ openCreateTask, openCreateProject, openPalette }} /></main>
+      </div>
     </div>
+    {taskModal && workspace && <TaskFormModal projects={data.projects.filter((p) => p.workspaceId === workspace.id && !p.archived)} defaultProjectId={taskModal.projectId} onClose={() => setTaskModal(null)} />}
+    {projectModalOpen && workspace && <ProjectFormModal workspace={workspace} onClose={() => setProjectModalOpen(false)} />}
+    {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} onCreateTask={() => openCreateTask()} onCreateProject={openCreateProject} />}
+    {ui.task && <TaskEditor key={ui.task.id || 'new'} taskId={ui.task.id} projectId={ui.task.projectId} onClose={() => dispatch(actions.ui({ task: null }))} />}
+    {ui.project && <ProjectEditor key={ui.project.id || 'new'} projectId={ui.project.id} onClose={() => dispatch(actions.ui({ project: null }))} />}
+    <DevControls />
   </div>
 }
